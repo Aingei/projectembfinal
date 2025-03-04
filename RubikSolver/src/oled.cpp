@@ -38,47 +38,30 @@ int counter = 0;
 bool lastWiFiStatus = false;
 bool lastMQTTStatus = false;
 
+String lastMessage = ""; // Store the last received MQTT message
+unsigned long messageDisplayTime = 0;
+const unsigned long messageTimeout = 5000; // Display message for 5 seconds
+
 void displayWiFiAndMQTTStatus()
 {
-  // Get the current WiFi and MQTT statuses
   bool currentWiFiStatus = (WiFi.status() == WL_CONNECTED);
   bool currentMQTTStatus = client.connected();
 
-  // Only update the display if either the WiFi or MQTT status has changed
   if (currentWiFiStatus != lastWiFiStatus || currentMQTTStatus != lastMQTTStatus)
   {
-    // Update last status variables
     lastWiFiStatus = currentWiFiStatus;
     lastMQTTStatus = currentMQTTStatus;
 
-    // Clear display
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SH110X_WHITE);
 
-    // Display WiFi status
     display.setCursor(0, 0);
-    if (currentWiFiStatus)
-    {
-      display.println("WiFi: Connected");
-    }
-    else
-    {
-      display.println("WiFi: Connecting...");
-    }
+    display.println(currentWiFiStatus ? "WiFi: Connected" : "WiFi: Connecting...");
 
-    // Display MQTT status
     display.setCursor(0, 10);
-    if (currentMQTTStatus)
-    {
-      display.println("MQTT: Connected");
-    }
-    else
-    {
-      display.println("MQTT: Connecting...");
-    }
+    display.println(currentMQTTStatus ? "MQTT: Connected" : "MQTT: Connecting...");
 
-    // Render the display
     display.display();
   }
 }
@@ -107,7 +90,48 @@ void connect()
 
 void messageReceived(String &topic, String &payload)
 {
-  Serial.println("incoming: " + topic + " - " + payload);
+  Serial.println("Incoming: " + topic + " - " + payload);
+
+  lastMessage = payload;
+  messageDisplayTime = millis(); 
+
+  // Count moves (split by space)
+  int moveCount = 1; // Starts at 1 since the last move has no space after it
+  for (int i = 0; i < payload.length(); i++)
+  {
+    if (payload[i] == ' ')
+    {
+      moveCount++;
+    }
+  }
+
+  // Display on OLED
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SH110X_WHITE);
+  
+  // Show Move Count
+  display.setCursor(0, 0);
+  display.print("Moves: ");
+  display.println(moveCount);
+
+  // Display Moves (Formatted)
+  display.setCursor(0, 10);
+  
+  int charCount = 0;
+  for (int i = 0; i < payload.length(); i++)
+  {
+    display.print(payload[i]);
+    charCount++;
+
+    if (payload[i] == ' ' && charCount > 10) // Break line after ~10 characters
+    {
+      display.setCursor(0, display.getCursorY() + 10);
+      charCount = 0;
+    }
+  }
+
+  display.display();
 }
 
 void displayCenteredText(const char *text, int textSize, int yOffset, int delayTime)
@@ -174,10 +198,9 @@ void loop()
 
   displayWiFiAndMQTTStatus();
 
-  // publish a message roughly every second.
-  if (millis() - lastMillis > 2000)
+
+  if (millis() - messageDisplayTime > messageTimeout)
   {
-    lastMillis = millis();
-    // client.publish(mqtt_topic, "Counter = " + String(counter++));
+    displayWiFiAndMQTTStatus();
   }
 }
