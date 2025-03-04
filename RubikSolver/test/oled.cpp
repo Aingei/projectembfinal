@@ -42,6 +42,9 @@ String lastMessage = ""; // Store the last received MQTT message
 unsigned long messageDisplayTime = 0;
 const unsigned long messageTimeout = 5000; // Display message for 5 seconds
 
+String lastMoveSequence = "";   // Variable to store move sequence
+String lastExecutionTime = "";  // Variable to store execution time
+
 void displayWiFiAndMQTTStatus()
 {
   bool currentWiFiStatus = (WiFi.status() == WL_CONNECTED);
@@ -88,51 +91,46 @@ void connect()
   client.subscribe(mqtt_topic);
 }
 
+
 void messageReceived(String &topic, String &payload)
 {
-  Serial.println("Incoming: " + topic + " - " + payload);
-
-  lastMessage = payload;
-  messageDisplayTime = millis(); 
-
-  // Count moves (split by space)
-  int moveCount = 1; // Starts at 1 since the last move has no space after it
-  for (int i = 0; i < payload.length(); i++)
-  {
-    if (payload[i] == ' ')
+    // Handle move sequence (from topic "iloveaut/rubik/command")
+    if (topic == "iloveaut/rubik/command")
     {
-      moveCount++;
+        lastMoveSequence = payload; // Store the move sequence
     }
-  }
 
-  // Display on OLED
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SH110X_WHITE);
-  
-  // Show Move Count
-  display.setCursor(0, 0);
-  display.print("Moves: ");
-  display.println(moveCount);
-
-  // Display Moves (Formatted)
-  display.setCursor(0, 10);
-  
-  int charCount = 0;
-  for (int i = 0; i < payload.length(); i++)
-  {
-    display.print(payload[i]);
-    charCount++;
-
-    if (payload[i] == ' ' && charCount > 10) // Break line after ~10 characters
+    // Handle execution time (from topic "iloveaut/rubik/time")
+    else if (topic == "iloveaut/rubik/time")
     {
-      display.setCursor(0, display.getCursorY() + 10);
-      charCount = 0;
+        lastExecutionTime = payload; // Store the execution time
     }
-  }
 
-  display.display();
+    // Display both the move sequence and execution time if both are received
+    if (lastMoveSequence != "" && lastExecutionTime != "")
+    {
+        display.clearDisplay();        // Clear the screen before updating
+        display.setTextSize(1);        // Set text size
+        display.setTextColor(SH110X_WHITE); // Set text color
+
+        // Display Move Sequence
+        display.setCursor(0, 0);  // Set cursor to the top left corner
+        display.print("Moves: ");
+        display.println(lastMoveSequence);  // Print the move sequence
+
+        // Display Execution Time
+        display.setCursor(0, display.getCursorY() + 10);  // Move cursor down
+        display.print("Solve Time: ");
+        
+        float execTimeInSec = lastExecutionTime.toFloat() / 1000.0;
+        display.print(execTimeInSec, 3);  // Print the time with 3 decimal places
+        display.println(" sec");  // Add "sec" to the execution time
+
+        display.display();  // Update the display
+    }
 }
+
+
 
 void displayCenteredText(const char *text, int textSize, int yOffset, int delayTime)
 {
@@ -183,6 +181,8 @@ void setup()
   welcome();
 
   connect();
+
+  client.subscribe("iloveaut/rubik/time");
 }
 
 void loop()

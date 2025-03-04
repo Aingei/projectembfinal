@@ -67,6 +67,9 @@ void B(bool prime = false) { moveMotor(16, 4, !prime, 50); }
 
 void executeMoveString(String moveSequence) {
     // Split the moveSequence string into individual moves
+
+    unsigned long startTime = millis(); // Start time tracking
+
     int start = 0;
     for (int i = 0; i < moveSequence.length(); i++) {
         if (moveSequence[i] == ' ' || i == moveSequence.length() - 1) {
@@ -94,9 +97,15 @@ void executeMoveString(String moveSequence) {
             else if (move == "L2") { L(); L(); }
             else if (move == "B2") { B(); B(); }
 
-            delay(100);
+            delay(500);
         }
     }
+
+    unsigned long endTime = millis(); // End time tracking
+    unsigned long executionTime = endTime - startTime; // Calculate execution time
+
+    String timeMessage = String(executionTime);
+    client.publish("iloveaut/rubik/time", timeMessage);
 }
 
 void messageReceived(String &topic, String &payload)
