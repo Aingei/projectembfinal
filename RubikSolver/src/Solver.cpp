@@ -97,7 +97,7 @@ void executeMoveString(String moveSequence) {
             else if (move == "L2") { L(); L(); }
             else if (move == "B2") { B(); B(); }
 
-            delay(500);
+            delay(1000);
         }
     }
 
